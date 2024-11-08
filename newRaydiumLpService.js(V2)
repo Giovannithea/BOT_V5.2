@@ -48,6 +48,7 @@ function invertCoinAndPcMint(tokenData) {
     const SPECIAL_COIN_MINT = "So11111111111111111111111111111111111111112";
     if (tokenData.coinMint === SPECIAL_COIN_MINT) {
         [tokenData.coinMint, tokenData.pcMint] = [tokenData.pcMint, tokenData.coinMint];
+        [tokenData.initPcAmount, tokenData.initCoinAmount] = [tokenData.initCoinAmount, tokenData.initPcAmount];
     }
     return tokenData;
 }
@@ -56,9 +57,9 @@ function parseCreateAmmLpParams(data) {
     const params = {
         discriminator: data.readUInt8(0),
         nonce: data.readUInt8(1),
-        openTime: data.readBigUInt64LE(2),
-        initPcAmount: data.readBigUInt64LE(10),
-        initCoinAmount: data.readBigUInt64LE(18),
+        openTime: data.readBigUInt64LE(2).toString(), // Convert BigInt to string
+        initPcAmount: (data.readBigUInt64LE(10) / BigInt(10**6)).toString(), // Reduce decimals by 6
+        initCoinAmount: (data.readBigUInt64LE(18) / BigInt(10**9)).toString(), // Reduce decimals by 9
     };
     return params;
 }
@@ -101,7 +102,7 @@ async function processRaydiumLpTransaction(connection, signature) {
                     continue;
                 }
 
-                const data = Buffer.from(ix.data, 'base64');
+                const data = Buffer.from(ix.data, 'base64'); // Decode Base64 data
                 const params = parseCreateAmmLpParams(data);
 
                 const mint0 = accounts[accountIndices[8]];
@@ -130,10 +131,10 @@ async function processRaydiumLpTransaction(connection, signature) {
                     systemProgramId: SYSTEM_PROGRAM_ID,
                     tokenProgramId: TOKEN_PROGRAM_ID_STR,
                     associatedTokenProgramId: ASSOCIATED_TOKEN_PROGRAM_ID_STR,
-                    initPcAmount: params.initPcAmount.toString(),
-                    initCoinAmount: params.initCoinAmount.toString(),
-                    K: (params.initPcAmount * params.initCoinAmount).toString(),
-                    V: (Math.min(params.initPcAmount, params.initCoinAmount) / Math.max(params.initPcAmount, params.initCoinAmount)).toString(),
+                    initPcAmount: params.initPcAmount,
+                    initCoinAmount: params.initCoinAmount,
+                    K: (BigInt(params.initPcAmount) * BigInt(params.initCoinAmount)).toString(),
+                    V: (Math.min(Number(params.initPcAmount), Number(params.initCoinAmount)) / Math.max(Number(params.initPcAmount), Number(params.initCoinAmount))).toString(),
                 };
 
                 tokenData = invertCoinAndPcMint(tokenData);
